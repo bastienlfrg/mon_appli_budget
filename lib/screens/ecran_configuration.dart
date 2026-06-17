@@ -1,6 +1,7 @@
 import 'dart:convert'; // Indispensable pour jsonEncode et jsonDecode
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Notre outil de sauvegarde
+import 'package:firebase_auth/firebase_auth.dart'; // Import de Firebase Auth pour la déconnexion
 import '../models/frais_fixe.dart';
 
 class EcranConfiguration extends StatefulWidget {
@@ -155,6 +156,21 @@ class _EcranConfigurationState extends State<EcranConfiguration> {
       appBar: AppBar(
         title: const Text('Configuration du Profil'),
         backgroundColor: Colors.blueGrey,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            tooltip: 'Se déconnecter',
+            onPressed: () async {
+              // 1. Déconnexion de Firebase Auth
+              await FirebaseAuth.instance.signOut();
+              
+              // 2. Fermer l'écran actuel pour revenir en arrière
+              if (mounted) {
+                Navigator.pop(context);
+              }
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
