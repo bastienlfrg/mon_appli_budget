@@ -16,16 +16,13 @@ class _EcranSoloState extends State<EcranSolo> {
   double solde = 0.0;
   List<Operation> lesOperations = [];
 
-  // --- DONNÉE PARTAGÉE (Simulation de la compagne) ---
-  double resteAVivreCompagne = 450.0; // Valeur simulée par défaut
-
   final TextEditingController _titreController = TextEditingController();
   final TextEditingController _montantController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _chargerDonneesPrincipales(); // Chargement auto des opérations, du solde et de la compagne au démarrage
+    _chargerDonneesPrincipales(); // Chargement auto des opérations et du solde au démarrage
   }
 
   // =========================================================
@@ -38,10 +35,7 @@ class _EcranSoloState extends State<EcranSolo> {
     // 1. Sauvegarde du solde numérique
     await prefs.setDouble('solde_courant', solde);
 
-    // 2. Sauvegarde du reste à vivre simulé de la compagne (pratique pour vos tests)
-    await prefs.setDouble('reste_a_vivre_compagne', resteAVivreCompagne);
-
-    // 3. Sauvegarde de la liste des opérations convertie en JSON string
+    // 2. Sauvegarde de la liste des opérations convertie en JSON string
     final String operationsJson =
         jsonEncode(lesOperations.map((op) => op.toJson()).toList());
     await prefs.setString('historique_operations', operationsJson);
@@ -51,15 +45,11 @@ class _EcranSoloState extends State<EcranSolo> {
     final prefs = await SharedPreferences.getInstance();
 
     final double? soldeStocke = prefs.getDouble('solde_courant');
-    final double? compagneStocke = prefs.getDouble('reste_a_vivre_compagne');
     final String? operationsRaw = prefs.getString('historique_operations');
 
     setState(() {
       if (soldeStocke != null) {
         solde = soldeStocke;
-      }
-      if (compagneStocke != null) {
-        resteAVivreCompagne = compagneStocke;
       }
       if (operationsRaw != null) {
         final List<dynamic> listeDecodee = jsonDecode(operationsRaw);
@@ -88,7 +78,6 @@ class _EcranSoloState extends State<EcranSolo> {
           0,
           Operation(
             id: 'op_${DateTime.now().millisecondsSinceEpoch}',
-            text: titreSaisi, // Remplacé 'titre' par 'text' si ton modèle utilise 'text', ou vice-versa
             titre: titreSaisi,
             montant: montantSaisi,
             estUnCredit: estUnCredit,
@@ -115,7 +104,6 @@ class _EcranSoloState extends State<EcranSolo> {
   @override
   Widget build(BuildContext context) {
     Color couleurSolde = solde < 0 ? Colors.red : Colors.teal;
-    double resteAVivreGlobal = solde + resteAVivreCompagne;
 
     return Scaffold(
       appBar: AppBar(
@@ -135,9 +123,10 @@ class _EcranSoloState extends State<EcranSolo> {
               if (nouveauSoldeDeBase != null) {
                 setState(() {
                   solde = nouveauSoldeDeBase;
-                  lesOperations.clear(); 
+                  lesOperations
+                      .clear(); // Optionnel : vide l'historique lors d'une réinitialisation budgétaire
                 });
-                _sauvegarderDonneesPrincipales();
+                _sauvegarderDonneesPrincipales(); // Sauvegarde du nouveau solde initialisé
               }
             },
           ),
@@ -148,97 +137,23 @@ class _EcranSoloState extends State<EcranSolo> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // --- 1. EN-TÊTE GLOBAL : RESTE À VIVRE DU FOYER ---
+            // --- EN-TÊTE : AFFICHAGE DU SOLDE ---
             Card(
               elevation: 4,
-              color: Colors.blueGrey[50],
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Reste à vivre global du Foyer',
-                      style: TextStyle(fontSize: 14, color: Colors.blueGrey, fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${resteAVivreGlobal.toStringAsFixed(2)} €',
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blueGrey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // --- 2. MON COMPTE PERSO (DÉTAILLÉ) ---
-            Card(
-              elevation: 2,
               color: solde < 0 ? Colors.red[50] : Colors.teal[50],
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    const Text('Mon Reste à vivre personnel',
-                        style: TextStyle(fontSize: 14, color: Colors.black54)),
-                    const SizedBox(height: 4),
+                    const Text('Solde Actuel (Reste à vivre)',
+                        style: TextStyle(fontSize: 16, color: Colors.black54)),
+                    const SizedBox(height: 8),
                     Text(
                       '${solde.toStringAsFixed(2)} €',
                       style: TextStyle(
-                          fontSize: 26,
+                          fontSize: 36,
                           fontWeight: FontWeight.bold,
                           color: couleurSolde),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // --- 3. ESPACE PARTAGÉ : COMPAGNE (SÉCURISÉ - CHIFFRE SEUL) ---
-            Card(
-              elevation: 2,
-              color: Colors.grey[100],
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.lock_outline, size: 20, color: Colors.orange),
-                        SizedBox(width: 8),
-                        Text(
-                          'Reste à vivre (Compagne) :',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                    // Un InkWell discret pour vous permettre de modifier la valeur de test directement en cliquant sur le chiffre !
-                    InkWell(
-                      onTap: () async {
-                        // Petit prompt de test rapide pour changer sa valeur à la volée pendant vos essais
-                        double? nouvelleValeur = await _afficherDialogueTestCompagne();
-                        if (nouvelleValeur != null) {
-                          setState(() {
-                            resteAVivreCompagne = nouvelleValeur;
-                          });
-                          _sauvegarderDonneesPrincipales();
-                        }
-                      },
-                      child: Text(
-                        '${resteAVivreCompagne.toStringAsFixed(2)} €',
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange),
-                      ),
                     ),
                   ],
                 ),
@@ -308,7 +223,7 @@ class _EcranSoloState extends State<EcranSolo> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // --- HISTORIQUE DES OPÉRATIONS ---
             const Text('Historique des opérations',
@@ -355,36 +270,13 @@ class _EcranSoloState extends State<EcranSolo> {
                                   color: couleurOp,
                                   fontSize: 16),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // --- PETIT OUTIL DE TEST : Boîte de dialogue pour modifier le solde fictif de la compagne ---
-  Future<double?> _afficherDialogueTestCompagne() {
-    final TextEditingController testController = TextEditingController(text: resteAVivreCompagne.toString());
-    return showDialog<double>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Simuler le Reste à Vivre de ta compagne'),
-        content: TextField(
-          controller: testController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(suffixText: '€', labelText: 'Montant fictif'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, double.tryParse(testController.text) ?? 0.0),
-            child: const Text('Valider'),
-          ),
-        ],
       ),
     );
   }
